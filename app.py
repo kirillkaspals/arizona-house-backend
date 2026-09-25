@@ -1,15 +1,12 @@
 import time
 from typing import List, Optional
-from fastapi import FastAPI, Header, HTTPException, Request, Depends
+from fastapi import FastAPI, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, DateTime
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from datetime import datetime, timezone
-
-# Секретный ключ (должен совпадать с SECRET_KEY в Lua-скрипте)
-SECRET_KEY = "usefguIHSFUSDFGUjhjfk88448"
 
 # База данных SQLite
 SQLALCHEMY_DATABASE_URL = "sqlite:///./tracker.db"
@@ -73,14 +70,10 @@ def get_time():
 @app.post("/update")
 def update_tracker(
     payload: UpdatePayload, 
-    x_secret_key: Optional[str] = Header(None, alias="X-Secret-Key"),
     db: Session = Depends(get_db)
 ):
     """Принимает сканы имущества от MoonLoader скрипта."""
-    if x_secret_key != SECRET_KEY:
-        raise HTTPException(status_code=403, detail="Invalid Secret Key")
-
-    # Сохраняем полученные объекты в БД
+    # Сохраняем полученные объекты в БД без проверки X-Secret-Key
     for item in payload.entries:
         record = PropertyRecord(
             server=payload.server,
