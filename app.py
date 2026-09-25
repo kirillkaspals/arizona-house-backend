@@ -5,14 +5,26 @@ from flask import Flask, request, jsonify, render_template_string
 
 app = Flask(__name__)
 
-SECRET_KEY = "usefguIHSFUSDFGUjhjfk88448"  # Ключ из вашего property_tracker.lua
+SECRET_KEY = "usefguIHSFUSDFGUjhjfk88448"  # Ключ из property_tracker.lua
 DB_FILE = "tracker.db"
+
+# ============================================================
+#   Полный список серверов Arizona RP из Lua-скрипта
+# ============================================================
+ALL_SERVERS = [
+    "Phoenix", "Tucson", "Scottdale", "Chandler", "Brainburg",
+    "Saint-Rose", "Mesa", "Red-Rock", "Yuma", "Surprise",
+    "Prescott", "Glendale", "Kingman", "Winslow", "Payson",
+    "Gilbert", "Show Low", "Casa-Grande", "Page", "Sun-City",
+    "Queen-Creek", "Sedona", "Holiday", "Wednesday", "Yava",
+    "Faraway", "Bumble Bee", "Christmas", "Love", "Mirage",
+    "Drake", "Space", "Home"
+]
 
 # Инициализация структуры БД
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    # Таблица для хранения текущей недвижимости
     c.execute('''
         CREATE TABLE IF NOT EXISTS properties (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,7 +38,6 @@ def init_db():
             UNIQUE(server, prop_type, position) ON CONFLICT REPLACE
         )
     ''')
-    # Таблица для логов сканирования (Консоль / Сканы)
     c.execute('''
         CREATE TABLE IF NOT EXISTS scan_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,7 +57,6 @@ init_db()
 @app.route('/update', methods=['POST'])
 def update_data():
     """Принимает батч данных от property_tracker.lua"""
-    # Проверка секретного ключа из заголовка X-Secret-Key
     client_key = request.headers.get("X-Secret-Key")
     if client_key != SECRET_KEY:
         return jsonify({"status": "error", "message": "Unauthorized: invalid secret key"}), 403
@@ -65,12 +75,12 @@ def update_data():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
 
-    # Очищаем старые записи для данного типа недвижимости перед обновлением позиции
+    # Очищаем старые записи для данного типа недвижимости перед обновлением
     prop_types_in_batch = set(e.get("propType") for e in entries if e.get("propType"))
     for p_type in prop_types_in_batch:
         c.execute("DELETE FROM properties WHERE server = ? AND prop_type = ?", (server, p_type))
 
-    # Записываем полученный список объектов
+    # Записываем полученные элементы
     for entry in entries:
         c.execute('''
             INSERT INTO properties (server, prop_type, prop_id, payday, position, scanner, updated_at)
@@ -82,27 +92,26 @@ def update_data():
             entry.get("pd", 0),
             entry.get("pos", 1),
             scanner,
-            datetime.utcnow()
+            datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         ))
 
-    # Фиксируем лог сканирования
     c.execute('INSERT INTO scan_logs (server, scanner, count) VALUES (?, ?, ?)',
               (server, scanner, len(entries)))
 
     conn.commit()
     conn.close()
 
-    print(f"[Tracker] Успешно обновлено: {server} | Игрок: {scanner} | Объектов: {len(entries)}")
+    print(f"[Tracker] Успешно обновлено: {server} | Сканер: {scanner} | Объектов: {len(entries)}")
     return jsonify({"status": "success", "processed": len(entries)}), 200
 
 
 @app.route('/time', methods=['GET'])
 def get_time():
-    """Эндпоинт синхранизации времени"""
+    """Синхронизация времени"""
     return jsonify({"timestamp": int(datetime.utcnow().timestamp())})
 
 
-# --- ВЕБ-ИНТЕРФЕЙС (Панель в стиле игры) ---
+# --- ВЕБ-ИНТЕРФЕЙС ---
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -251,8 +260,8 @@ HTML_TEMPLATE = """
             </div>
             {% endfor %}
         {% else %}
-            <div class="row" style="justify-content: center; color: #777; padding: 20px;">
-                Нет данных по выбранному серверу
+            <div class="row" style="justify-content: center; color: #777; padding: 25px;">
+                Нет данных по серверу {{ current_server }}
             </div>
         {% endif %}
     </div>
@@ -264,7 +273,7 @@ HTML_TEMPLATE = """
 
     {% if items %}
     <div class="meta-info">
-        Последнее сканирование: {{ items[0].updated_at }} | Сканер: {{ items[0].scanner }}
+        Обновлено (UTC): {{ items[0].updated_at }} | Сканер: {{ items[0].scanner }}
     </div>
     {% endif %}
 </div>
@@ -282,13 +291,6 @@ def index():
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
-    # Список всех сохранённых серверов
-    c.execute('SELECT DISTINCT server FROM properties')
-    servers = [row['server'] for row in c.fetchall()]
-    if not servers:
-        servers = ["Phoenix"]
-
-    # Запрос актуального списка недвижимости
     c.execute('''
         SELECT position, prop_type, prop_id, payday, scanner, updated_at
         FROM properties
@@ -302,7 +304,7 @@ def index():
     return render_template_string(
         HTML_TEMPLATE,
         items=items,
-        servers=servers,
+        servers=ALL_SERVERS,
         current_server=server,
         prop_type=prop_type
     )
