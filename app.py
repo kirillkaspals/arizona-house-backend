@@ -1,4 +1,5 @@
 import time
+import os
 from typing import List, Optional, Dict
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import HTMLResponse
@@ -11,7 +12,7 @@ SECRET_KEY = "usefguIHSFUSDFGUjhjfk88448"
 # Хранилище данных в памяти
 property_data: Dict[str, dict] = {}
 
-# Pydantic модели для валидации данных от Lua-скрипта
+# Pydantic модели для приема данных от Lua-скрипта
 class Entry(BaseModel):
     propType: str
     pd: int
@@ -20,7 +21,7 @@ class Entry(BaseModel):
 
 class UpdatePayload(BaseModel):
     server: str
-    scanner: Optional[str] = "Аноним"
+    scanner: Optional[str] = "unknown"
     entries: List[Entry]
 
 # --- API Endpoints ---
@@ -43,7 +44,7 @@ async def update_data(payload: UpdatePayload, x_secret_key: Optional[str] = Head
         "updatedAt": current_time
     }
     
-    print(f"[{current_time}] Обновлен сервер {server}: {len(houses)} домов, {len(businesses)} бизнесов")
+    print(f"[{current_time}] Обновлен сервер {server}: {len(houses)} домов, {len(businesses)} бизнесов (Сканер: {payload.scanner})")
     return {"status": "ok", "message": "Data received"}
 
 
@@ -52,8 +53,7 @@ async def get_time():
     return {"time": int(time.time())}
 
 
-# --- Веб-интерфейс ---
-
+# --- Актуальный список серверов Arizona RP (без устаревших и лишних элементов) ---
 ALL_SERVERS = [
     "Phoenix", "Tucson", "Scottdale", "Chandler", "Brainburg", "Saint-Rose",
     "Mesa", "Red-Rock", "Yuma", "Surprise", "Prescott", "Glendale",
@@ -72,7 +72,8 @@ async def read_root():
         has_businesses = data and len(data.get("businesses", [])) > 0
         has_data = has_houses or has_businesses
 
-        updated_at_html = f'<div class="server-meta"><span class="server-time">Обновлено: {data["updatedAt"]} MSK</span></div>' if data else ''
+        scanner_info = f' • Сканер: <b style="color: var(--accent-blue);">{data["scanner"]}</b>' if data and data.get("scanner") else ''
+        updated_at_html = f'<div class="server-meta"><span class="server-time">Обновлено: {data["updatedAt"]}{scanner_info}</span></div>' if data else ''
 
         if has_data:
             houses_list = ""
@@ -288,6 +289,5 @@ async def read_root():
 
 if __name__ == "__main__":
     import uvicorn
-    import os
     port = int(os.environ.get("PORT", 3000))
     uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
