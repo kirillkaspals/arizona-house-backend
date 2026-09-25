@@ -1,3 +1,1 @@
-fastapi
-uvicorn
-pydantic
+pip install fastapi uvicorn sqlalchemy jinja2
