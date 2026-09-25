@@ -94,20 +94,19 @@ def update_tracker(
 
 @app.get("/", response_class=HTMLResponse)
 def view_dashboard(request: Request, server: Optional[str] = None, db: Session = Depends(get_db)):
-    """Отображение таблицы со сканами на веб-странице."""
     query = db.query(PropertyRecord)
     if server:
         query = query.filter(PropertyRecord.server == server)
     
-    # Получаем последние 100 записей
     records = query.order_by(PropertyRecord.created_at.desc()).limit(100).all()
-    
-    # Список всех серверов для фильтра
     servers = [r[0] for r in db.query(PropertyRecord.server).distinct().all()]
 
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "records": records,
-        "servers": servers,
-        "selected_server": server
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "records": records,
+            "servers": servers,
+            "selected_server": server
+        }
+    )
