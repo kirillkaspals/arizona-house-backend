@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arizona RP Property Tracker</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #121212; color: #e0e0e0; margin: 20px; }
+        h1 { color: #fff; }
+        .filter { margin-bottom: 20px; }
+        select, button { padding: 8px 12px; background: #1e1e1e; color: #fff; border: 1px solid #333; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 8px; overflow: hidden; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #2c2c2c; }
+        th { background-color: #272727; color: #00adb5; }
+        tr:hover { background-color: #2a2a2a; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .house { background: #2e7d32; color: #fff; }
+        .business { background: #c62828; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <h1> Arizona RP Property Tracker</h1>
+
+    <div class="filter">
+        <form method="get" action="/">
+            <label for="server">Фильтр по серверу: </label>
+            <select name="server" id="server" onchange="this.form.submit()">
+                <option value="">Все сервера</option>
+                {% for s in servers %}
+                    <option value="{{ s }}" {% if s == selected_server %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Дата / Время (UTC)</th>
+                <th>Сервер</th>
+                <th>Сканер</th>
+                <th>Тип</th>
+                <th>ID объекта</th>
+                <th>PayDay</th>
+                <th>Позиция</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in records %}
+            <tr>
+                <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td><strong>{{ r.server }}</strong></td>
+                <td>{{ r.scanner }}</td>
+                <td>
+                    <span class="badge {% if r.prop_type == 'house' %}house{% else %}business{% endif %}">
+                        {{ r.prop_type }}
+                    </span>
+                </td>
+                <td>{{ r.prop_id if r.prop_id else '—' }}</td>
+                <td>{{ r.pd }} PD</td>
+                <td>#{{ r.pos }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center;">Записи не найдены</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</body>
+</html>
